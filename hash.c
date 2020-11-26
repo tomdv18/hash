@@ -31,6 +31,11 @@ typedef struct hash{
 }hash_t;
 
 //====================================================================================================//
+//					PODRIAMOS HACER UNA FUNCION QUE BUSQUE UN NUMERO PRIMO MAYOR AL ACTUAL
+//====================================================================================================//
+
+//=======================(PRIMITIVAS HASH)==========================//
+
 
 hash_t *hash_crear(hash_destruir_dato_t destruir_dato){
 	hash_t * hash = malloc(sizeof(hash_t));
@@ -126,7 +131,8 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 	bool existe = hash_pertenece(hash, copia);
 	if (existe){
 	// SEGUIR TRABAJANDO, TIENE QUE HABER UNA FUNCION QUE SE PUEDA 
-		// USAR TAMBIEN EN HASH_ PERTENECE QUE DEVUELVA LA POSICION
+	// USAR TAMBIEN EN HASH_ PERTENECE QUE DEVUELVA LA POSICION
+	// CUANDO SE ENCUENTRE LA POSICION, SE TIENE QUE ELIMINAR EL ELEMENTO DE ESA POSICION
 
 	}
 
