@@ -1,5 +1,6 @@
 #define TAMANIO_INICIAL 7
 #define FACTOR_DE_CARGA 
+//agrego este comment
 
 typedef struct nodo {
 	void* elemento;
