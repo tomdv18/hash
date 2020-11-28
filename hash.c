@@ -3,13 +3,18 @@
 
 #define TAMANIO_INICIAL 7
 #define FACTOR_DE_CARGA 
+#define DIVISORES_PRIMO 3 
 //agrego este comment
 
-typedef struct nodo {
+typedef struct nodo_hash {
 	void* dato;
-	struct nodo* siguiente;
 	char clave[MAX_CLAVE];
-} nodo_t;
+} nodo_hash_t;
+
+typedef struct nodo{
+	struct nodo* siguiente;
+	void * dato;
+}nodo_t;
 
 struct lista{
 	nodo_t* primero;
@@ -111,8 +116,8 @@ void vaciar_hash_anterior(hash_t * hash){
 // Devuelve verdadero si se pudo redimensionarlo
 // No se pudo redimensionar si no existe memoria suficiente para 
 // un nuevo arreglo, para una nueva lista o si no se pudo insertar en una lista.
-bool redimensionar_hash(hash_t * hash){
-	hash->tamanio = hash->tamanio * 2;
+bool redimensionar_hash(hash_t * hash, size_t nuevo_tam){
+	hash->tamanio = nuevo_tam;
 	lista_t** nueva_lista = calloc(hash->tamanio, sizeof(lista_t*));// REVISAR
 	if(!nueva_lista){
 		return false;
@@ -123,7 +128,7 @@ bool redimensionar_hash(hash_t * hash){
 		if (!hash->tabla[i]){
 			nodo_t *nodo = hash->tabla[i]->nodo_inicio;
 			for (int j = 0; j < hash->tabla[i]->cantidad; j++){
-				posicion = funcion_hash(nodo->clave) % hash->tamanio;
+				posicion = funcion_hash(nodo->dato->clave) % hash->tamanio;
 				if(tabla[posicion] == NULL){
 					tabla[posicion] = lista_crear();
 					if(tabla[posicion] == NULL){
@@ -134,7 +139,7 @@ bool redimensionar_hash(hash_t * hash){
 						free(nueva_lista);
 						return false;
 					}
-					strcpy(tabla[posicion]->nodo_fin->clave, nodo->clave);
+					strcpy(tabla[posicion]->nodo_fin->dato->clave, nodo->dato->clave);
 					nodo = nodo->siguiente;
 				}
 			}
@@ -144,6 +149,35 @@ bool redimensionar_hash(hash_t * hash){
 	hash->tabla = nueva_lista;
 	return true;
 }
+
+//
+// Recibe un numero cualquiera
+// Devuelve true si es primo
+bool es_primo(size_t numero){
+	int contador = 0;
+  	for(size_t i = 1; i <= numero; i++){
+    	if(numero % i == 0){
+    	  contador++;
+    	}
+  	}
+  	if(contador <= DIVISORES_PRIMO){
+  		return true;
+  	}
+  	return false;
+}
+//
+//Recibe el tamaño y la cantidad de elementos previamente inicializadas de un hash
+// Devuelve el proximo numero primo que corresponda para que el factor de carga del hash
+// Vuelva a su estado correcto
+//
+size_t prox_primo(const size_t tamanio_ant, const size_t cantidad_elementos){
+	size_t proximo = tamanio_ant + 1;
+	while(cantidad_elementos/proximo >= FACTOR_DE_CARGA && !es_primo(proximo)){
+		proximo++;
+	}
+	return proximo;
+}
+
 
 /* Guarda un elemento en el hash, si la clave ya se encuentra en la
  * estructura, la reemplaza. De no poder guardarlo devuelve false.
@@ -159,7 +193,8 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 		return false;
 	}
 	if ((hash->cantidad_elementos/hash->tamanio) >= FACTOR_DE_CARGA){
-		redimensionar_hash(hash);
+		size_t prox_tam = prox_primo(hash->tamanio, hash->cantidad_elementos);
+		redimensionar_hash(hash, prox_tam);
 	}
 	size_t nueva_posicion = funcion_hash(copia) % hash->tamanio;
 	if (hash->tabla[nueva_posicion] == NULL){
@@ -191,13 +226,42 @@ void *hash_borrar(hash_t *hash, const char *clave){
 
 }
 
+//Recibe una clave y un nodo
+//Devuelve verdadero si la clave es identica a la del ndoo
+bool es_clave_correcta(char* clave, nodo_hash_t nodo){
+	return(strcmp(clave, nodo->clave) == 0);
+}
+
+
 /* Obtiene el valor de un elemento del hash, si la clave no se encuentra
  * devuelve NULL.
  * Pre: La estructura hash fue inicializada
  */
 void *hash_obtener(const hash_t *hash, const char *clave){
-
+	size_t posicion = funcion_hash(clave) % hash->tamanio;
+	if (hash->tabla[posicion] == NULL){
+		return NULL;
+	}
+	lista_iter_t * iter = lista_iter_crear(hash->tabla[posicion]);
+	if (!iter){
+		return NULL;
+	}
+	nodo_hash_t nodo_copia;
+	bool seguir = true;
+	while(!lista_iter_al_final(iter) && seguir){
+		nodo_copia = lista_iter_ver_actual(iter);
+		seguir = seguir && !es_clave_correcta(clave, nodo_copia);
+	}
+	if (lista_iter_al_final(iter)){
+		lista_iter_destruir(iter);
+		return NULL;
+	}
+	lista_iter_destruir(iter);
+	return nodo_copia->dato;
 }
+
+
+
 
 /* Determina si clave pertenece o no al hash.
  * Pre: La estructura hash fue inicializada
@@ -209,11 +273,23 @@ bool hash_pertenece(const hash_t *hash, const char *clave){
 	if(hash->tabla[posicion_elemento]==NULL){
 		return false;
 	}
-
+	lista_iter_t * iter = lista_iter_crear(hash->tabla[posicion]);
+	if (!iter){
+		return false;
+	}
+	nodo_hash_t nodo_copia;
+	bool seguir = true;
+	while(!lista_iter_al_final(iter) && seguir){
+		nodo_copia = lista_iter_ver_actual(iter);
+		seguir = seguir && !es_clave_correcta(clave, nodo_copia);
+	}
+	if (lista_iter_al_final(iter) && seguir){
+		lista_iter_destruir(iter);
+		return false;
+	}
+	lista_iter_destruir(iter);
 	return true;
 
-}
-	
 }
 
 /* Devuelve la cantidad de elementos del hash.
