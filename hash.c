@@ -255,7 +255,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 		size_t prox_tam = prox_primo(hash->tamanio, hash->cantidad_elementos);
 		redimensionar_hash(hash, prox_tam);
 	}
-	if ((hash->cantidad_elementos/hash->tamanio) <= FACTOR_DE_REDUCCION){
+	if ((hash->cantidad_elementos/hash->tamanio) <= FACTOR_DE_REDUCCION && hash->tamanio > TAMANIO_INICIAL ){
 		size_t prox_tam = ant_primo(hash->tamanio, hash->cantidad_elementos);
 		redimensionar_hash(hash, prox_tam);
 	}
@@ -283,6 +283,8 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 			free(copia);
 			return false;
 		}
+		hash->tabla[nueva_posicion] = nueva_lista;
+
 	}
 	bool se_pudo = true;
 	se_pudo = se_pudo && lista_insertar_ultimo(hash->tabla[nueva_posicion], nodo);
