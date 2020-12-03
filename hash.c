@@ -261,12 +261,17 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 	}
 	bool existe = hash_pertenece(hash, copia);
 	size_t nueva_posicion = funcion_hash(copia) % hash->tamanio;
-	nodo_hash_t * nodo;
+	nodo_hash_t * nodo = malloc(sizeof(nodo_hash_t));
+	if (!nodo){
+		free(copia);
+		return false;
+	}
 	nodo->dato = dato;
 	nodo->clave = copia;
 	if (existe){
 		existe = existe && reemplazar_dato(hash->tabla[nueva_posicion], nodo, hash->destructor);
 		if (!existe){
+			free(nodo);
 			free(copia);
 		}
 		return existe;
@@ -274,6 +279,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 	if (hash->tabla[nueva_posicion] == NULL){
 		lista_t * nueva_lista = lista_crear();
 		if (!nueva_lista){
+			free(nodo);
 			free(copia);
 			return false;
 		}
@@ -281,6 +287,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 	bool se_pudo = true;
 	se_pudo = se_pudo && lista_insertar_ultimo(hash->tabla[nueva_posicion], nodo);
 	if (!se_pudo){
+		free(nodo);
 		free(copia);
 		return false;
 	}
@@ -324,7 +331,9 @@ void *hash_borrar(hash_t *hash, const char *clave){
 		return NULL;
 	}
 	free(nodo->clave);
-	return nodo->dato;
+	void *dato = nodo->dato;
+	free(nodo);
+	return dato;
 }
 
 //Recibe una clave y un nodo
@@ -419,7 +428,7 @@ void hash_destruir(hash_t *hash){
 				}
 				free(nodo->clave);
 			}
-			lista_destruir(hash->tabla[i], NULL);
+			lista_destruir(hash->tabla[i], free);
 		}
 	}
 	free(hash->tabla);
