@@ -8,7 +8,7 @@
 #define TAMANIO_INICIAL 13
 #define FACTOR_DE_CARGA 2
 #define FACTOR_DE_REDUCCION 0.25
-#define DIVISORES_PRIMO 3 
+#define DIVISORES_PRIMO 2 
 
 
 typedef struct nodo_hash {
@@ -123,8 +123,9 @@ void vaciar_hash_anterior(hash_t * hash){
 	int i = 0;
 	while(i < (hash->tamanio)){
 		if(hash->tabla[i] != NULL){
-			lista_destruir(hash->tabla[i], hash->destructor);
+			lista_destruir(hash->tabla[i], free);
 		}
+		i++;
 	}
 	free(hash->tabla);
 }
@@ -164,8 +165,8 @@ bool redimensionar_hash(hash_t * hash, size_t nuevo_tam){
 			lista_iter_destruir(iter);
 		}
 	}
-	hash->tamanio = nuevo_tam;
 	vaciar_hash_anterior(hash);
+	hash->tamanio = nuevo_tam;
 	hash->tabla = nueva_lista;
 	return true;
 }
@@ -180,7 +181,7 @@ bool es_primo(size_t numero){
     	  contador++;
     	}
   	}
-  	if(contador <= DIVISORES_PRIMO){
+  	if(contador == DIVISORES_PRIMO){
   		return true;
   	}
   	return false;
@@ -192,7 +193,7 @@ bool es_primo(size_t numero){
 //
 size_t prox_primo(const size_t tamanio_ant, const size_t cantidad_elementos){
 	size_t proximo = tamanio_ant + 1;
-	while(cantidad_elementos/proximo >= FACTOR_DE_CARGA && !es_primo(proximo)){
+	while(!es_primo(proximo)){
 		proximo++;
 	}
 	return proximo;
@@ -203,7 +204,7 @@ size_t prox_primo(const size_t tamanio_ant, const size_t cantidad_elementos){
 //
 size_t ant_primo(const size_t tamanio_ant, const size_t cantidad_elementos){
 	size_t anterior = tamanio_ant - 1;
-	while(cantidad_elementos/anterior <= FACTOR_DE_REDUCCION && !es_primo(anterior)){
+	while(!es_primo(anterior)){
 		anterior--;
 	}
 	return anterior;
@@ -244,9 +245,6 @@ bool reemplazar_dato(lista_t *lista, nodo_hash_t * nodo_insertar, hash_destruir_
  * Post: Se almacenó el par (clave, dato)
  */
 bool hash_guardar(hash_t *hash, const char *clave, void *dato){
-	if (!dato || !clave){
-		return false;
-	}
 	char *copia = strdup(clave);
 	if (!copia){
 		return false;
@@ -335,6 +333,7 @@ void *hash_borrar(hash_t *hash, const char *clave){
 	free(nodo->clave);
 	void *dato = nodo->dato;
 	free(nodo);
+	hash->cantidad_elementos--;
 	return dato;
 }
 
@@ -362,18 +361,16 @@ void *hash_obtener(const hash_t *hash, const char *clave){
 	bool seguir = true;
 	while(!lista_iter_al_final(iter) && seguir){
 		nodo_copia = lista_iter_ver_actual(iter);
-		seguir = seguir && !es_clave_correcta(clave, nodo_copia);
+		seguir = !es_clave_correcta(clave, nodo_copia);
 		lista_iter_avanzar(iter);
 	}
-	if (lista_iter_al_final(iter)){
+	if (lista_iter_al_final(iter) && seguir){
 		lista_iter_destruir(iter);
 		return NULL;
 	}
 	lista_iter_destruir(iter);
 	return nodo_copia->dato;
 }
-
-
 
 
 /* Determina si clave pertenece o no al hash.
@@ -383,7 +380,7 @@ bool hash_pertenece(const hash_t *hash, const char *clave){
 	size_t posicion_elemento;
 	posicion_elemento=funcion_hash(clave) % hash->tamanio;
 
-	if(hash->tabla[posicion_elemento]==NULL){
+	if(hash->tabla[posicion_elemento] == NULL){
 		return false;
 	}
 	lista_iter_t * iter = lista_iter_crear(hash->tabla[posicion_elemento]);
@@ -429,6 +426,7 @@ void hash_destruir(hash_t *hash){
 					hash->destructor(nodo->dato);
 				}
 				free(nodo->clave);
+				hash->cantidad_elementos--;
 			}
 			lista_destruir(hash->tabla[i], free);
 		}

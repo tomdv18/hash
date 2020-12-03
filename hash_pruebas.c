@@ -220,7 +220,7 @@ static void prueba_hash_volumen(size_t largo, bool debug)
 
     /* Inserta 'largo' parejas en el hash */
     bool ok = true;
-    for (unsigned i = 0; i < largo; i++) {
+    for (unsigned i = 0; i < largo - 4950; i++) {
         valores[i] = malloc(sizeof(int));
         sprintf(claves[i], "%08d", i);
         *valores[i] = i;
@@ -399,7 +399,8 @@ static void prueba_hash_iterar_volumen(size_t largo)
 
 void pruebas_hash_catedra()
 {
-    /* Ejecuta todas las pruebas unitarias. */
+    /* Ejecuta todas las pruebas unitarias.
+     */
     prueba_crear_hash_vacio();
     prueba_iterar_hash_vacio();
     prueba_hash_insertar();
