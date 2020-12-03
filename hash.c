@@ -1,14 +1,19 @@
 #include "lista.h"
+#include "hash.h"
 #include <stdio.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define TAMANIO_INICIAL 7
-#define FACTOR_DE_CARGA 
+#define TAMANIO_INICIAL 13
+#define FACTOR_DE_CARGA 2
+#define FACTOR_DE_REDUCCION 0.25
 #define DIVISORES_PRIMO 3 
-//agrego este comment
+
 
 typedef struct nodo_hash {
 	void* dato;
-	char clave[MAX_CLAVE];
+	char *clave;
 } nodo_hash_t;
 
 typedef struct nodo{
@@ -16,17 +21,17 @@ typedef struct nodo{
 	void * dato;
 }nodo_t;
 
-struct lista{
+typedef struct lista{
 	nodo_t* primero;
 	nodo_t* ultimo;
 	size_t largo;
-};
+}lista_t;
 
-struct lista_iter{
+typedef struct lista_iter{
     lista_t *lista;
     nodo_t *actual;
 	nodo_t *anterior;
-};
+}lista_iter_t;
 
 typedef struct hash_iter{
   const hash_t* hash;
@@ -80,6 +85,18 @@ lista_t** crear_tabla(size_t tam){
 //=======================(PRIMITIVAS HASH)==========================//
 
 
+ // Djb2 hash function
+size_t funcion_hash(const char *str) {
+
+        unsigned long hash = 5381;
+        int  c;
+        while ((c = *str++))
+            hash = ((hash << 5) + hash) + (unsigned long)c; /* hash * 33 + c */
+        return hash;
+
+}
+
+
 hash_t *hash_crear(hash_destruir_dato_t destruir_dato){
 	hash_t * hash = malloc(sizeof(hash_t));
 	if (!hash){
@@ -117,34 +134,37 @@ void vaciar_hash_anterior(hash_t * hash){
 // No se pudo redimensionar si no existe memoria suficiente para 
 // un nuevo arreglo, para una nueva lista o si no se pudo insertar en una lista.
 bool redimensionar_hash(hash_t * hash, size_t nuevo_tam){
-	hash->tamanio = nuevo_tam;
 	lista_t** nueva_lista = calloc(hash->tamanio, sizeof(lista_t*));// REVISAR
 	if(!nueva_lista){
 		return false;
 	}
 	size_t posicion = 0;
 	bool se_pudo = true;
+	nodo_hash_t *nodo;
 	for (int i = 0; i < hash->tamanio; i++){
-		if (!hash->tabla[i]){
-			nodo_t *nodo = hash->tabla[i]->nodo_inicio;
-			for (int j = 0; j < hash->tabla[i]->cantidad; j++){
-				posicion = funcion_hash(nodo->dato->clave) % hash->tamanio;
-				if(tabla[posicion] == NULL){
-					tabla[posicion] = lista_crear();
-					if(tabla[posicion] == NULL){
-						free(nueva_lista);
-					}
-					se_pudo = lista_insertar_ultimo(tabla[posicion], nodo->dato);
-					if (!se_pudo){
+		if (hash->tabla[i]){
+			lista_iter_t * iter = lista_iter_crear(hash->tabla[i]);
+			while(!lista_iter_al_final(iter) && se_pudo){
+				nodo = lista_iter_ver_actual(iter);
+				posicion = funcion_hash(nodo->clave) % hash->tamanio;
+				if(nueva_lista[posicion] == NULL){
+					nueva_lista[posicion] = lista_crear();
+					if(nueva_lista[posicion] == NULL){
 						free(nueva_lista);
 						return false;
-					}
-					strcpy(tabla[posicion]->nodo_fin->dato->clave, nodo->dato->clave);
-					nodo = nodo->siguiente;
+					}	
 				}
+				se_pudo = lista_insertar_ultimo(nueva_lista[posicion], nodo->dato);
+				if (!se_pudo){
+					free(nueva_lista);
+					return false;
+				}
+				lista_iter_avanzar(iter);
 			}
+			lista_iter_destruir(iter);
 		}
 	}
+	hash->tamanio = nuevo_tam;
 	vaciar_hash_anterior(hash);
 	hash->tabla = nueva_lista;
 	return true;
@@ -177,7 +197,46 @@ size_t prox_primo(const size_t tamanio_ant, const size_t cantidad_elementos){
 	}
 	return proximo;
 }
-
+//Recibe el tamaño y la cantidad de elementos previamente inicializadas de un hash
+// Devuelve el ANTERIOR numero primo que corresponda para que el factor de carga del hash
+// Vuelva a su estado correcto
+//
+size_t ant_primo(const size_t tamanio_ant, const size_t cantidad_elementos){
+	size_t anterior = tamanio_ant - 1;
+	while(cantidad_elementos/anterior <= FACTOR_DE_REDUCCION && !es_primo(anterior)){
+		anterior--;
+	}
+	return anterior;
+}
+//Pre: todos los elementos que recibe deben estar incializados
+// En el caso de la lista, se sabe que esta contiene un elemento que posee
+// La misma clave que quiero insertar
+// Devuelve verdadero si se pudo insertar.
+bool reemplazar_dato(lista_t *lista, nodo_hash_t * nodo_insertar, hash_destruir_dato_t destructor){
+	lista_iter_t * iter = lista_iter_crear(lista);
+	if (!iter){
+		return false;
+	}
+	bool continuar = true;
+	nodo_hash_t *nodo_anterior;
+	while(!lista_iter_al_final(iter) && continuar){
+		nodo_anterior = lista_iter_ver_actual(iter);
+		if (strcmp(nodo_anterior->clave, nodo_insertar->clave) == 0){
+			nodo_anterior = lista_iter_borrar(iter);
+			lista_iter_insertar(iter, nodo_insertar);
+			continuar = false;
+		}
+		lista_iter_avanzar(iter);
+	}
+	if (continuar == false){
+		free(nodo_anterior->clave);
+	}
+	if (destructor != NULL){
+		destructor(nodo_anterior->dato);
+	}
+	lista_iter_destruir(iter);
+	return true;
+}
 
 /* Guarda un elemento en el hash, si la clave ya se encuentra en la
  * estructura, la reemplaza. De no poder guardarlo devuelve false.
@@ -196,25 +255,57 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 		size_t prox_tam = prox_primo(hash->tamanio, hash->cantidad_elementos);
 		redimensionar_hash(hash, prox_tam);
 	}
+	if ((hash->cantidad_elementos/hash->tamanio) <= FACTOR_DE_REDUCCION){
+		size_t prox_tam = ant_primo(hash->tamanio, hash->cantidad_elementos);
+		redimensionar_hash(hash, prox_tam);
+	}
+	bool existe = hash_pertenece(hash, copia);
 	size_t nueva_posicion = funcion_hash(copia) % hash->tamanio;
+	nodo_hash_t * nodo;
+	nodo->dato = dato;
+	nodo->clave = copia;
+	if (existe){
+		existe = existe && reemplazar_dato(hash->tabla[nueva_posicion], nodo, hash->destructor);
+		if (!existe){
+			free(copia);
+		}
+		return existe;
+	}
 	if (hash->tabla[nueva_posicion] == NULL){
 		lista_t * nueva_lista = lista_crear();
 		if (!nueva_lista){
+			free(copia);
 			return false;
 		}
 	}
-	bool existe = hash_pertenece(hash, copia);
-	if (existe){
-	// SEGUIR TRABAJANDO, TIENE QUE HABER UNA FUNCION QUE SE PUEDA 
-	// USAR TAMBIEN EN HASH_ PERTENECE QUE DEVUELVA LA POSICION
-	// CUANDO SE ENCUENTRE LA POSICION, SE TIENE QUE ELIMINAR EL ELEMENTO DE ESA POSICION
-
+	bool se_pudo = true;
+	se_pudo = se_pudo && lista_insertar_ultimo(hash->tabla[nueva_posicion], nodo);
+	if (!se_pudo){
+		free(copia);
+		return false;
 	}
-
-
-
-
+	hash->cantidad_elementos++;
+	return se_pudo;
 }
+
+
+void * quitar_elemento(lista_t * lista, const char *clave){
+	nodo_hash_t * nodo_quitado;
+	lista_iter_t * iter = lista_iter_crear(lista);
+	if (!iter){
+		return NULL;
+	}
+	while(!lista_iter_al_final(iter)){
+		nodo_quitado = lista_iter_ver_actual(iter);
+		if (strcmp(nodo_quitado->clave, clave) == 0){
+			nodo_quitado = lista_iter_borrar(iter);
+		}
+		lista_iter_avanzar(iter);
+	}
+	lista_iter_destruir(iter);
+	return nodo_quitado;
+}
+
 
 /* Borra un elemento del hash y devuelve el dato asociado.  Devuelve
  * NULL si el dato no estaba.
@@ -223,12 +314,22 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
  * en el caso de que estuviera guardado.
  */
 void *hash_borrar(hash_t *hash, const char *clave){
-
+	bool pertenece = hash_pertenece(hash, clave);
+	if (!pertenece){
+		return NULL;
+	}
+	size_t posicion = funcion_hash(clave) % hash->tamanio;
+	nodo_hash_t * nodo = quitar_elemento(hash->tabla[posicion], clave);
+	if (!nodo){
+		return NULL;
+	}
+	free(nodo->clave);
+	return nodo->dato;
 }
 
 //Recibe una clave y un nodo
-//Devuelve verdadero si la clave es identica a la del ndoo
-bool es_clave_correcta(char* clave, nodo_hash_t nodo){
+//Devuelve verdadero si la clave es identica a la del nodo
+bool es_clave_correcta(const char* clave, nodo_hash_t *nodo){
 	return(strcmp(clave, nodo->clave) == 0);
 }
 
@@ -246,11 +347,12 @@ void *hash_obtener(const hash_t *hash, const char *clave){
 	if (!iter){
 		return NULL;
 	}
-	nodo_hash_t nodo_copia;
+	nodo_hash_t *nodo_copia;
 	bool seguir = true;
 	while(!lista_iter_al_final(iter) && seguir){
 		nodo_copia = lista_iter_ver_actual(iter);
 		seguir = seguir && !es_clave_correcta(clave, nodo_copia);
+		lista_iter_avanzar(iter);
 	}
 	if (lista_iter_al_final(iter)){
 		lista_iter_destruir(iter);
@@ -273,15 +375,16 @@ bool hash_pertenece(const hash_t *hash, const char *clave){
 	if(hash->tabla[posicion_elemento]==NULL){
 		return false;
 	}
-	lista_iter_t * iter = lista_iter_crear(hash->tabla[posicion]);
+	lista_iter_t * iter = lista_iter_crear(hash->tabla[posicion_elemento]);
 	if (!iter){
 		return false;
 	}
-	nodo_hash_t nodo_copia;
+	nodo_hash_t * nodo_copia;
 	bool seguir = true;
 	while(!lista_iter_al_final(iter) && seguir){
 		nodo_copia = lista_iter_ver_actual(iter);
 		seguir = seguir && !es_clave_correcta(clave, nodo_copia);
+		lista_iter_avanzar(iter);
 	}
 	if (lista_iter_al_final(iter) && seguir){
 		lista_iter_destruir(iter);
@@ -305,7 +408,22 @@ size_t hash_cantidad(const hash_t *hash){
  * Post: La estructura hash fue destruida
  */
 void hash_destruir(hash_t *hash){
-
+	for (int i = 0; i <= (hash->tamanio); i++){
+		if (hash->tabla[i] != NULL){
+			lista_iter_t * iter = lista_iter_crear(hash->tabla[i]);
+			nodo_hash_t * nodo;
+			while(!lista_iter_al_final(iter)){
+				nodo = lista_iter_borrar(iter);
+				if (hash->destructor != NULL){
+					hash->destructor(nodo->dato);
+				}
+				free(nodo->clave);
+			}
+			lista_destruir(hash->tabla[i], NULL);
+		}
+	}
+	free(hash->tabla);
+	free(hash);
 }
 
 
@@ -327,7 +445,7 @@ typedef struct hash_iter{
 
 // Crea iterador
 hash_iter_t *hash_iter_crear(const hash_t *hash){
-	int posicion_lista = 0;
+	size_t posicion_lista = 0;
 	hash_iter_t *hash_iter = malloc(sizeof(lista_iter_t));
     if (hash_iter == NULL) {
         return NULL;
@@ -344,9 +462,9 @@ hash_iter_t *hash_iter_crear(const hash_t *hash){
 		//si el hash tiene elementos lo que quiero hacer es encontrar
 		//el primer campo que tenga lista y el hash comenzara alli
 
-		size_t largo_hash=hash->tamanio;
+	//	size_t largo_hash=hash->tamanio;
 
-		for (int i = 0; i < hash->tamanio-1; i++) {
+		for (size_t i = 0; i < hash->tamanio-1; i++) {
 			if (!lista_esta_vacia(hash->tabla[i])) {
 			
 				posicion_lista = i;
@@ -382,7 +500,7 @@ bool hash_iter_avanzar(hash_iter_t *iter){
    		size_t pos = iter->posicion++;
 		//veo a ver si hay otro campo con listas 
    		int posicion_lista = 0;
-		for (int i = pos; i < iter->hash->tamanio; i++) {
+		for (int i = (int)pos; i < iter->hash->tamanio; i++) {
 			if (!lista_esta_vacia(iter->hash->tabla[i])) {
 			
 				posicion_lista = i;
