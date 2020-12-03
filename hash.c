@@ -327,38 +327,108 @@ typedef struct hash_iter{
 
 // Crea iterador
 hash_iter_t *hash_iter_crear(const hash_t *hash){
-	hash_iter_t *iter = malloc(sizeof(lista_iter_t));
-    if (iter == NULL) {
+	int posicion_lista = 0;
+	hash_iter_t *hash_iter = malloc(sizeof(lista_iter_t));
+    if (hash_iter == NULL) {
         return NULL;
     }
-    iter->hash = hash;
-	iter->lista_iter = NULL;
-	int indice_primera_lista=0;
+    hash_iter->hash = hash;
+	hash_iter->lista_iter = NULL;
+
 
 	if (hash->cantidad_elementos == 0) {
-		iter->posicion=0;
-		iter->lista_iter=NULL;
-		return iter;
-	//continuar con los otros casos
+		hash_iter->posicion=0;
+		hash_iter->lista_iter=NULL;
+		return hash_iter;
+	}else{
+		//si el hash tiene elementos lo que quiero hacer es encontrar
+		//el primer campo que tenga lista y el hash comenzara alli
+
+		size_t largo_hash=hash->tamanio;
+
+		for (int i = 0; i < hash->tamanio-1; i++) {
+			if (!lista_esta_vacia(hash->tabla[i])) {
+			
+				posicion_lista = i;
+				break; //quzias este break puede traer problemas
+			}
+		}
+
+		
+		
+		hash_iter->lista_iter = lista_iter_crear(hash->tabla[posicion_lista]);
+		}
+
+	if (!hash_iter->lista_iter) {
+		free(hash_iter);
+		return NULL;
+	}
+
+	hash_iter->posicion=posicion_lista;
+
+	return hash_iter;
+		
 }
 
 // Avanza iterador
 bool hash_iter_avanzar(hash_iter_t *iter){
+	if(hash_iter_al_final(iter)){
+		return false;
+	}
+	lista_iter_avanzar(iter->lista_iter);
+
+   	if (lista_iter_al_final(iter->lista_iter) && !hash_iter_al_final(iter)) {
+   		lista_iter_destruir(iter->lista_iter);
+   		size_t pos = iter->posicion++;
+		//veo a ver si hay otro campo con listas 
+   		int posicion_lista = 0;
+		for (int i = pos; i < iter->hash->tamanio; i++) {
+			if (!lista_esta_vacia(iter->hash->tabla[i])) {
+			
+				posicion_lista = i;
+				break; //quzias este break puede traer problemas
+			}
+		}
+		iter->lista_iter = lista_iter_crear(iter->hash->tabla[posicion_lista]);
+
+   		if (!iter->lista_iter){
+		   return false;
+		}
+   	}
+
+   	return true;
 
 }
 
 // Devuelve clave actual, esa clave no se puede modificar ni liberar.
 const char *hash_iter_ver_actual(const hash_iter_t *iter){
+	if(!iter->lista_iter){
+		return NULL;
+	}
+	if(lista_iter_al_final(iter->lista_iter)){
+		 return NULL;
+	}	 
+
+	nodo_hash_t* nodo_actual = lista_iter_ver_actual(iter->lista_iter);
+	return nodo_actual->clave;
 
 }
 
 // Comprueba si terminó la iteración
 bool hash_iter_al_final(const hash_iter_t *iter){
+	if (!iter->lista_iter) {
+		return true;
+	}
+	return (iter->posicion == (iter->hash->tamanio)-1) && (lista_iter_al_final(iter->lista_iter));
 
 }
 
 // Destruye iterador
 void hash_iter_destruir(hash_iter_t *iter){
+
+	lista_iter_destruir(iter->lista_iter);
+  	free(iter);
+
 
 }
 
