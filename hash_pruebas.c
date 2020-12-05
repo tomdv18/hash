@@ -220,7 +220,7 @@ static void prueba_hash_volumen(size_t largo, bool debug)
 
     /* Inserta 'largo' parejas en el hash */
     bool ok = true;
-    for (unsigned i = 0; i < largo - 4950; i++) {
+    for (unsigned i = 0; i < largo; i++) {
         valores[i] = malloc(sizeof(int));
         sprintf(claves[i], "%08d", i);
         *valores[i] = i;

@@ -123,7 +123,7 @@ void vaciar_hash_anterior(hash_t * hash){
 	int i = 0;
 	while(i < (hash->tamanio)){
 		if(hash->tabla[i] != NULL){
-			lista_destruir(hash->tabla[i], free);
+			lista_destruir(hash->tabla[i], NULL);
 		}
 		i++;
 	}
@@ -135,7 +135,7 @@ void vaciar_hash_anterior(hash_t * hash){
 // No se pudo redimensionar si no existe memoria suficiente para 
 // un nuevo arreglo, para una nueva lista o si no se pudo insertar en una lista.
 bool redimensionar_hash(hash_t * hash, size_t nuevo_tam){
-	lista_t** nueva_lista = calloc(hash->tamanio, sizeof(lista_t*));// REVISAR
+	lista_t** nueva_lista = calloc(nuevo_tam, sizeof(lista_t*));// REVISAR
 	if(!nueva_lista){
 		return false;
 	}
@@ -147,7 +147,7 @@ bool redimensionar_hash(hash_t * hash, size_t nuevo_tam){
 			lista_iter_t * iter = lista_iter_crear(hash->tabla[i]);
 			while(!lista_iter_al_final(iter) && se_pudo){
 				nodo = lista_iter_ver_actual(iter);
-				posicion = funcion_hash(nodo->clave) % hash->tamanio;
+				posicion = funcion_hash(nodo->clave) % nuevo_tam;
 				if(nueva_lista[posicion] == NULL){
 					nueva_lista[posicion] = lista_crear();
 					if(nueva_lista[posicion] == NULL){
@@ -155,7 +155,7 @@ bool redimensionar_hash(hash_t * hash, size_t nuevo_tam){
 						return false;
 					}	
 				}
-				se_pudo = lista_insertar_ultimo(nueva_lista[posicion], nodo->dato);
+				se_pudo = lista_insertar_ultimo(nueva_lista[posicion], nodo);
 				if (!se_pudo){
 					free(nueva_lista);
 					return false;
@@ -257,7 +257,7 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 		size_t prox_tam = ant_primo(hash->tamanio, hash->cantidad_elementos);
 		redimensionar_hash(hash, prox_tam);
 	}
-	bool existe = hash_pertenece(hash, copia);
+	bool existe = hash_pertenece(hash, clave);
 	size_t nueva_posicion = funcion_hash(copia) % hash->tamanio;
 	nodo_hash_t * nodo = malloc(sizeof(nodo_hash_t));
 	if (!nodo){
@@ -282,7 +282,6 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 			return false;
 		}
 		hash->tabla[nueva_posicion] = nueva_lista;
-
 	}
 	bool se_pudo = true;
 	se_pudo = se_pudo && lista_insertar_ultimo(hash->tabla[nueva_posicion], nodo);
@@ -302,10 +301,12 @@ void * quitar_elemento(lista_t * lista, const char *clave){
 	if (!iter){
 		return NULL;
 	}
-	while(!lista_iter_al_final(iter)){
+	bool seguir = true;
+	while(!lista_iter_al_final(iter) && seguir){
 		nodo_quitado = lista_iter_ver_actual(iter);
 		if (strcmp(nodo_quitado->clave, clave) == 0){
 			nodo_quitado = lista_iter_borrar(iter);
+			seguir = false;
 		}
 		lista_iter_avanzar(iter);
 	}
@@ -339,8 +340,8 @@ void *hash_borrar(hash_t *hash, const char *clave){
 
 //Recibe una clave y un nodo
 //Devuelve verdadero si la clave es identica a la del nodo
-bool es_clave_correcta(const char* clave, nodo_hash_t *nodo){
-	return(strcmp(clave, nodo->clave) == 0);
+bool es_clave_correcta(const char* clave, char* clavenodo){
+	return (strcmp(clave, clavenodo) == 0);
 }
 
 
@@ -361,7 +362,7 @@ void *hash_obtener(const hash_t *hash, const char *clave){
 	bool seguir = true;
 	while(!lista_iter_al_final(iter) && seguir){
 		nodo_copia = lista_iter_ver_actual(iter);
-		seguir = !es_clave_correcta(clave, nodo_copia);
+		seguir = !es_clave_correcta(clave, nodo_copia->clave);
 		lista_iter_avanzar(iter);
 	}
 	if (lista_iter_al_final(iter) && seguir){
@@ -391,7 +392,7 @@ bool hash_pertenece(const hash_t *hash, const char *clave){
 	bool seguir = true;
 	while(!lista_iter_al_final(iter) && seguir){
 		nodo_copia = lista_iter_ver_actual(iter);
-		seguir = seguir && !es_clave_correcta(clave, nodo_copia);
+		seguir = seguir && !es_clave_correcta(clave, nodo_copia->clave);
 		lista_iter_avanzar(iter);
 	}
 	if (lista_iter_al_final(iter) && seguir){
