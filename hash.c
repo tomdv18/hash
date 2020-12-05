@@ -235,6 +235,7 @@ bool reemplazar_dato(lista_t *lista, nodo_hash_t * nodo_insertar, hash_destruir_
 	if (destructor != NULL){
 		destructor(nodo_anterior->dato);
 	}
+	free(nodo_anterior);
 	lista_iter_destruir(iter);
 	return true;
 }
@@ -417,7 +418,7 @@ size_t hash_cantidad(const hash_t *hash){
  * Post: La estructura hash fue destruida
  */
 void hash_destruir(hash_t *hash){
-	for (int i = 0; i <= (hash->tamanio); i++){
+	for (int i = 0; i < (hash->tamanio); i++){
 		if (hash->tabla[i] != NULL){
 			lista_iter_t * iter = lista_iter_crear(hash->tabla[i]);
 			nodo_hash_t * nodo;
@@ -427,8 +428,10 @@ void hash_destruir(hash_t *hash){
 					hash->destructor(nodo->dato);
 				}
 				free(nodo->clave);
+				free(nodo);
 				hash->cantidad_elementos--;
 			}
+			lista_iter_destruir(iter);
 			lista_destruir(hash->tabla[i], free);
 		}
 	}
