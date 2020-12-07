@@ -21,66 +21,32 @@ typedef struct nodo{
 	void * dato;
 }nodo_t;
 
-typedef struct lista{
-	nodo_t* primero;
-	nodo_t* ultimo;
-	size_t largo;
-}lista_t;
 
-typedef struct lista_iter{
-    lista_t *lista;
-    nodo_t *actual;
-	nodo_t *anterior;
-}lista_iter_t;
 
-typedef struct hash_iter{
+struct hash_iter{
   const hash_t* hash;
   lista_iter_t* lista_iter;
   size_t posicion;
-}hash_iter_t;
+};
 
-typedef struct hash{
+struct hash{
 	lista_t ** tabla;
 	size_t cantidad_elementos;
 	size_t tamanio;
 	hash_destruir_dato_t destructor;
-}hash_t;
+};
 
 typedef struct hash_campo {
     char *clave;
     void *valor;
 } hash_campo_t;
 
-//====================================================================================================//
-//					PODRIAMOS HACER UNA FUNCION QUE BUSQUE UN NUMERO PRIMO MAYOR AL ACTUAL
-//====================================================================================================//
+struct lista_iter{
+    lista_t *lista;
+    nodo_t *actual;
+	nodo_t *anterior;
+};
 
-//====================================================================================================//
-//					ESTO DE ACA ABAJO ES UNA FUNCIN QUE CREA LA TABLA CON LAS LISTAS DESDE EL PRINCIPIO
-//====================================================================================================//
-
-/*
-lista_t** crear_tabla(size_t tam){
-	lista_t** tabla = malloc(sizeof(lista_t*) * tam);
-
-	if (!tabla){
-		return NULL;
-
-	}
-
-	for (size_t i = 0; i < tam; i++) {
-        tabla[i] = lista_crear();
-        if (!tabla[i]){
-			//si falla la creacion de alguna lista tengo que destruir toda la tabla
-			for (size_t j = 0; j < i; j++) {
-				lista_destruir(tabla[j], NULL);
-			}
-			return NULL;
-		}
-    }
-    return tabla;
-}
-*/
 
 //=======================(PRIMITIVAS HASH)==========================//
 
@@ -103,7 +69,6 @@ hash_t *hash_crear(hash_destruir_dato_t destruir_dato){
 		return NULL;
 	}
 
-	//hash->tabla = crear_tabla(TAMANIO_INICIAL);
 	hash->tabla=calloc(TAMANIO_INICIAL, sizeof(lista_t*));
 	if (!hash->tabla){
 		free(hash);
@@ -445,16 +410,6 @@ void hash_destruir(hash_t *hash){
 
 /* Iterador del hash */
 
-/*
-recordar:
-typedef struct hash_iter{
-  const hash_t* hash;
-  lista_iter_t* lista_iter;
-  size_t posicion;
-}hash_iter_t;
-
-
-*/
 
 // Crea iterador
 hash_iter_t *hash_iter_crear(const hash_t *hash){
@@ -465,28 +420,20 @@ hash_iter_t *hash_iter_crear(const hash_t *hash){
     }
     hash_iter->hash = hash;
 	hash_iter->lista_iter = NULL;
-
-
+	
 	if (hash->cantidad_elementos == 0) {
 		hash_iter->posicion=0;
 		hash_iter->lista_iter=NULL;
 		return hash_iter;
 	}else{
-		//si el hash tiene elementos lo que quiero hacer es encontrar
-		//el primer campo que tenga lista y el hash comenzara alli
-
-	//	size_t largo_hash=hash->tamanio;
-
-		for (size_t i = 0; i < hash->tamanio-1; i++) {
-			if (!lista_esta_vacia(hash->tabla[i])) {
-			
+		for (size_t i = 0; i < hash->tamanio-1; i++) {	
+			if (hash->tabla[i]!= NULL) {
 				posicion_lista = i;
-				break; //quzias este break puede traer problemas
+				break; 
 			}
+
 		}
 
-		
-		
 		hash_iter->lista_iter = lista_iter_crear(hash->tabla[posicion_lista]);
 		}
 
@@ -496,40 +443,12 @@ hash_iter_t *hash_iter_crear(const hash_t *hash){
 	}
 
 	hash_iter->posicion=posicion_lista;
-
 	return hash_iter;
 		
 }
 
-// Avanza iterador
-bool hash_iter_avanzar(hash_iter_t *iter){
-	if(hash_iter_al_final(iter)){
-		return false;
-	}
-	lista_iter_avanzar(iter->lista_iter);
 
-   	if (lista_iter_al_final(iter->lista_iter) && !hash_iter_al_final(iter)) {
-   		lista_iter_destruir(iter->lista_iter);
-   		size_t pos = iter->posicion++;
-		//veo a ver si hay otro campo con listas 
-   		int posicion_lista = 0;
-		for (int i = (int)pos; i < iter->hash->tamanio; i++) {
-			if (!lista_esta_vacia(iter->hash->tabla[i])) {
-			
-				posicion_lista = i;
-				break; //quzias este break puede traer problemas
-			}
-		}
-		iter->lista_iter = lista_iter_crear(iter->hash->tabla[posicion_lista]);
 
-   		if (!iter->lista_iter){
-		   return false;
-		}
-   	}
-
-   	return true;
-
-}
 
 // Devuelve clave actual, esa clave no se puede modificar ni liberar.
 const char *hash_iter_ver_actual(const hash_iter_t *iter){
@@ -550,9 +469,51 @@ bool hash_iter_al_final(const hash_iter_t *iter){
 	if (!iter->lista_iter) {
 		return true;
 	}
-	return (iter->posicion == (iter->hash->tamanio)-1) && (lista_iter_al_final(iter->lista_iter));
+	return ((iter->posicion == (iter->hash->tamanio-1)) && (lista_iter_al_final(iter->lista_iter)));
 
 }
+
+
+// Avanza iterador
+bool hash_iter_avanzar(hash_iter_t *iter){
+	if(hash_iter_al_final(iter)){
+		return false;
+	}
+	
+	if(iter->lista_iter!=NULL){
+		lista_iter_avanzar(iter->lista_iter);
+		if (lista_iter_al_final(iter->lista_iter)){
+
+			lista_iter_destruir(iter->lista_iter);
+			iter->posicion++;
+			int posicion_lista = -1;
+			for (int i = (int)iter->posicion; i < iter->hash->tamanio; i++) {
+				if (iter->hash->tabla[i]!= NULL) {			
+					posicion_lista = i;
+					break;
+				}
+			}
+			if(posicion_lista==-1){
+				iter->lista_iter = NULL;
+				return false;
+			}
+
+			iter->posicion = (size_t)posicion_lista;
+
+			iter->lista_iter = lista_iter_crear(iter->hash->tabla[posicion_lista]);
+			
+			if (!iter->lista_iter){
+				return false;
+			}
+		
+		}
+	}
+
+   	return true;
+
+}
+
+
 
 // Destruye iterador
 void hash_iter_destruir(hash_iter_t *iter){
