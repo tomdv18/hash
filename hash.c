@@ -326,7 +326,7 @@ void *hash_obtener(const hash_t *hash, const char *clave){
 	if (!iter){
 		return NULL;
 	}
-	nodo_hash_t *nodo_copia;
+	nodo_hash_t *nodo_copia = lista_iter_ver_actual(iter);;
 	bool seguir = true;
 	while(!lista_iter_al_final(iter) && seguir){
 		nodo_copia = lista_iter_ver_actual(iter);
@@ -356,7 +356,7 @@ bool hash_pertenece(const hash_t *hash, const char *clave){
 	if (!iter){
 		return false;
 	}
-	nodo_hash_t * nodo_copia;
+	nodo_hash_t * nodo_copia = lista_iter_ver_actual(iter);;
 	bool seguir = true;
 	while(!lista_iter_al_final(iter) && seguir){
 		nodo_copia = lista_iter_ver_actual(iter);
