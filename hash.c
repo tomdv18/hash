@@ -110,6 +110,7 @@ bool redimensionar_hash(hash_t * hash, size_t nuevo_tam){
 	for (int i = 0; i < hash->tamanio; i++){
 		if (hash->tabla[i]){
 			lista_iter_t * iter = lista_iter_crear(hash->tabla[i]);
+			nodo = lista_iter_ver_actual(iter);
 			while(!lista_iter_al_final(iter) && se_pudo){
 				nodo = lista_iter_ver_actual(iter);
 				posicion = funcion_hash(nodo->clave) % nuevo_tam;
@@ -184,7 +185,7 @@ bool reemplazar_dato(lista_t *lista, nodo_hash_t * nodo_insertar, hash_destruir_
 		return false;
 	}
 	bool continuar = true;
-	nodo_hash_t *nodo_anterior;
+	nodo_hash_t *nodo_anterior = lista_iter_ver_actual(iter);
 	while(!lista_iter_al_final(iter) && continuar){
 		nodo_anterior = lista_iter_ver_actual(iter);
 		if (strcmp(nodo_anterior->clave, nodo_insertar->clave) == 0){
@@ -268,6 +269,7 @@ void * quitar_elemento(lista_t * lista, const char *clave){
 		return NULL;
 	}
 	bool seguir = true;
+	nodo_quitado = lista_iter_ver_actual(iter);
 	while(!lista_iter_al_final(iter) && seguir){
 		nodo_quitado = lista_iter_ver_actual(iter);
 		if (strcmp(nodo_quitado->clave, clave) == 0){
