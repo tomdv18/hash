@@ -5,10 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define TAMANIO_INICIAL 13
-#define FACTOR_DE_CARGA 2
+#define TAMANIO_INICIAL 17
+#define FACTOR_DE_CARGA 3
 #define FACTOR_DE_REDUCCION 0.25
-#define DIVISORES_PRIMO 2 
+
 
 
 typedef struct nodo_hash {
@@ -34,6 +34,7 @@ struct hash{
 	size_t cantidad_elementos;
 	size_t tamanio;
 	hash_destruir_dato_t destructor;
+	size_t factor_redimension;
 };
 
 typedef struct hash_campo {
@@ -77,6 +78,7 @@ hash_t *hash_crear(hash_destruir_dato_t destruir_dato){
 	hash->destructor = destruir_dato;
 	hash->tamanio = TAMANIO_INICIAL;
 	hash->cantidad_elementos = 0;
+	hash->factor_redimension = 0;
 	return hash;
 }
 
@@ -138,41 +140,24 @@ bool redimensionar_hash(hash_t * hash, size_t nuevo_tam){
 }
 
 //
-// Recibe un numero cualquiera
-// Devuelve true si es primo
-bool es_primo(size_t numero){
-	int contador = 0;
-  	for(size_t i = 1; i <= numero; i++){
-    	if(numero % i == 0){
-    	  contador++;
-    	}
-  	}
-  	if(contador == DIVISORES_PRIMO){
-  		return true;
-  	}
-  	return false;
-}
-//
 //Recibe el tamaño y la cantidad de elementos previamente inicializadas de un hash
 // Devuelve el proximo numero primo que corresponda para que el factor de carga del hash
 // Vuelva a su estado correcto
 //
-size_t prox_primo(const size_t tamanio_ant, const size_t cantidad_elementos){
-	size_t proximo = tamanio_ant + 1;
-	while(!es_primo(proximo)){
-		proximo++;
-	}
+size_t prox_primo(hash_t * hash){
+	size_t vector_redimension[18] = { 17, 31, 67, 127, 257, 509, 997, 2053, 4093, 8191, 16381, 32771, 65537, 131077, 262147, 524287, 1048589, 2097169};
+	size_t proximo = vector_redimension[(hash->factor_redimension) + 1];
+	hash->factor_redimension++;
 	return proximo;
 }
 //Recibe el tamaño y la cantidad de elementos previamente inicializadas de un hash
 // Devuelve el ANTERIOR numero primo que corresponda para que el factor de carga del hash
 // Vuelva a su estado correcto
 //
-size_t ant_primo(const size_t tamanio_ant, const size_t cantidad_elementos){
-	size_t anterior = tamanio_ant - 1;
-	while(!es_primo(anterior)){
-		anterior--;
-	}
+size_t ant_primo(hash_t *hash){
+	size_t vector_redimension[18] = { 17, 31, 67, 127, 257, 509, 997, 2053, 4093, 8191, 16381, 32771, 65537, 131077, 262147, 524287, 1048589, 2097169};
+	size_t anterior = vector_redimension[(hash->factor_redimension) - 1];
+	hash->factor_redimension--;
 	return anterior;
 }
 //Pre: todos los elementos que recibe deben estar incializados
@@ -217,11 +202,11 @@ bool hash_guardar(hash_t *hash, const char *clave, void *dato){
 		return false;
 	}
 	if ((hash->cantidad_elementos/hash->tamanio) >= FACTOR_DE_CARGA){
-		size_t prox_tam = prox_primo(hash->tamanio, hash->cantidad_elementos);
+		size_t prox_tam = prox_primo(hash);
 		redimensionar_hash(hash, prox_tam);
 	}
 	if ((hash->cantidad_elementos/hash->tamanio) <= FACTOR_DE_REDUCCION && hash->tamanio > TAMANIO_INICIAL ){
-		size_t prox_tam = ant_primo(hash->tamanio, hash->cantidad_elementos);
+		size_t prox_tam = ant_primo(hash);
 		redimensionar_hash(hash, prox_tam);
 	}
 	bool existe = hash_pertenece(hash, clave);
