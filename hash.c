@@ -430,8 +430,10 @@ hash_iter_t *hash_iter_crear(const hash_t *hash){
 	}else{
 		for (size_t i = 0; i < hash->tamanio-1; i++) {	
 			if (hash->tabla[i]!= NULL) {
-				posicion_lista = i;
-				break; 
+				if (!lista_esta_vacia(hash->tabla[i])){     ///////
+					posicion_lista = i;
+					break; 
+				}
 			}
 
 		}
@@ -491,8 +493,10 @@ bool hash_iter_avanzar(hash_iter_t *iter){
 			int posicion_lista = -1;
 			for (int i = (int)iter->posicion; i < iter->hash->tamanio; i++) {
 				if (iter->hash->tabla[i]!= NULL) {			
-					posicion_lista = i;
-					break;
+					if (!lista_esta_vacia(iter->hash->tabla[i])){     ///////
+						posicion_lista = i;
+						break;
+					}
 				}
 			}
 			if(posicion_lista==-1){
